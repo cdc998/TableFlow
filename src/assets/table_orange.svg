@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="226" height="106" viewBox="0 0 226 106"
+     stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- curved green background -->
+  <rect x="3" y="3" width="220" height="100" rx="50" ry="50" fill="#ff8c00"/>
+  <!-- inner playing surface outline -->
+  <rect x="38" y="28" width="150" height="50" rx="25" ry="25" fill="none"/>
+  <!-- connector bars -->
+  <line x1="113" y1="3"  x2="113" y2="28"/>
+  <line x1="113" y1="78" x2="113" y2="103"/>
+  <line x1="3"   y1="53" x2="38"  y2="53"/>
+  <line x1="188" y1="53" x2="223" y2="53"/>
+  <line x1="28"  y1="15" x2="48"  y2="33"/>
+  <line x1="198" y1="15" x2="178" y2="33"/>
+  <line x1="28"  y1="91" x2="48"  y2="73"/>
+  <line x1="198" y1="91" x2="178" y2="73"/>
+</svg>
