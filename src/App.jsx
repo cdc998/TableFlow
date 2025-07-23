@@ -7,7 +7,7 @@ function App() {
           TableFlow - Poker Table Break Tracker
         </h1>
         <p className="text-lg text-center text-gray-600">
-          Let's build this together! 🚀
+          Placeholder
         </p>
       </div>
     </div>
