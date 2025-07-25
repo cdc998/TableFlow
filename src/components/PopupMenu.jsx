@@ -1,17 +1,61 @@
 import { useState } from "react";
 import TimeSelector from "./TimeSelector";
+import { addTimeInIntervals, formatTime, getNextBreakTime, roundToNearestQuarter } from "../utils/timeHelpers";
 
-function PopupMenu({ isOpen, onClose, tableNumber, status, position }) {
+function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTable }) {
     if (!isOpen) return null;
 
     const [showTimeSelector, setShowTimeSelector] = useState(false);
 
     const popupStyle = {
         position: 'absolute',
-        bottom: '100%',
+        bottom: '80%',
         left: '50%',
         transform: 'translateX(-50%)',
         marginBottom: '10px'
+    };
+
+    {/* Helper functions for status updates */}
+    const handleSetToClosed = () => {
+        onUpdateTable(tableNumber, {
+            status: 'closed',
+            startTime: null,
+            breakTime: null,
+            nextBreakTime: null
+        });
+        onClose();
+    };
+
+    const handleOpenTable = selectedTime => {
+        const currentTime = roundToNearestQuarter(new Date());
+        const selectedDateTime = new Date(selectedTime);
+
+        const timeDiff = currentTime.getTime() - selectedDateTime.getTime();
+        const hoursElapsed = timeDiff / (1000 * 60 * 60);
+
+        if (hoursElapsed >= 3) {
+            const breakStartTime = addTimeInIntervals(selectedDateTime, 3, 0);
+            const breakEndTime = addTimeInIntervals(breakStartTime, 0, 15);
+
+            onUpdateTable(tableNumber, {
+                status: 'on-break',
+                startTime: selectedTime,
+                breakTime: breakStartTime,
+                nextBreakTime: breakEndTime
+            });
+        } else {
+            const nextBreakTime = getNextBreakTime(selectedTime);
+
+            onUpdateTable(tableNumber, {
+                status: 'open',
+                startTime: selectedTime,
+                breakTime: null,
+                nextBreakTime: nextBreakTime
+            });
+        }
+
+        setShowTimeSelector(false);
+        onClose();
     };
 
     if (showTimeSelector) {
@@ -20,9 +64,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, position }) {
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
                     <TimeSelector
                         onSelectTime={(time) => {
-                            console.log('Opening table at:', time);
-                            setShowTimeSelector(false);
-                            onClose();
+                            handleOpenTable(time);
                         }}
                         onCancel={() => setShowTimeSelector(false)}
                     />
@@ -44,7 +86,27 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, position }) {
                 </div>
 
                 {/* Status Display */}
-                <p className="mb-2 text-sm">Current status: <span className="font-semibold">{status}</span></p>
+                <div className="mb-3">
+                    <p className="mb-1 text-sm">Current status: <span className="font-semibold">{status}</span></p>
+
+                    {tableData.startTime && (
+                        <p className="text-xs text-gray-600">
+                            Started: {formatTime(new Date(tableData.startTime))}
+                        </p>
+                    )}
+
+                    {tableData.nextBreakTime && status === 'open' && (
+                        <p className="text-xs text-gray-600">
+                            Next break: {formatTime(new Date(tableData.nextBreakTime))}
+                        </p>
+                    )}
+
+                    {tableData.breakTime && status === 'on-break' && (
+                        <p className="text-xs text-gray-600">
+                            Break ends: {formatTime(new Date(tableData.nextBreakTime))}
+                        </p>
+                    )}
+                </div>
 
                 {/* Action buttons */}
                 <div className="mt-3 space-y-2">
@@ -54,10 +116,12 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, position }) {
                     >
                         Set to Open
                     </button>
-                    <button className="w-full py-1 px-3 text-sm bg-orange-500 text-white rounded hover:bg-orange-600">
-                        Set to Break
-                    </button>
-                    <button className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600">
+
+                    <button
+                        className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                        onClick={handleSetToClosed}
+                    >
+                        
                         Set to Closed
                     </button>
                 </div>

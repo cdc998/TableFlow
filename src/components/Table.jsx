@@ -5,9 +5,7 @@ import greenTableSvg from '../assets/table_green.svg';
 import orangeTableSvg from '../assets/table_orange.svg';
 import greyTableSvg from '../assets/table_grey.svg';
 
-function Table({ tableNumber, status }) {
-    const [isPopupOpen, setIsPopupOpen] = useState(false);
-
+function Table({ tableNumber, status, tableData, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable }) {
     const getTableSvg = (status) => {
         switch(status) {
             case 'open': return greenTableSvg;
@@ -18,18 +16,10 @@ function Table({ tableNumber, status }) {
 
     const tableSvg = getTableSvg(status);
 
-    const tableData = {
-        tableNumber: tableNumber,
-        status: status,
-        startTime: null,
-        breakTime: null,
-        nextBreakTime: null
-    };
-
     return (
         <div 
             className='relative w-96 h-96 cursor-pointer'
-            onClick={() => setIsPopupOpen(true)}
+            onClick={() => onOpenPopup(tableNumber)}
         >
             <img 
                 src={tableSvg}
@@ -44,9 +34,11 @@ function Table({ tableNumber, status }) {
             
             <PopupMenu
                 isOpen={isPopupOpen}
-                onClose={() => setIsPopupOpen(false)}
+                onClose={onClosePopup}
                 tableNumber={tableNumber}
                 status={status}
+                tableData={tableData}
+                onUpdateTable={onUpdateTable}
             />
         </div>
     );
