@@ -29,7 +29,7 @@ export const formatTime = (date) => {
 
 export const addTimeInIntervals = (startTime, hours, minutes = 0) => {
     const newDate = new Date(startTime);
-    newDate.setHours(newDate.getHours() + hours, newDate.getMinutes() + minutes, 0, 0,);
+    newDate.setHours(newDate.getHours() + hours, newDate.getMinutes() + minutes, 0, 0);
     return roundToNearestQuarter(newDate);
 };
 
@@ -48,11 +48,35 @@ export const getNextBreakTime = startTime => {
 
     const start = new Date(startTime);
     return addTimeInIntervals(start, 3, 0);
-}
+};
 
 export const getBreakEndTime = breakStartTime => {
     if (!breakStartTime) return null;
 
     const breakStart = new Date(breakStartTime);
     return addTimeInIntervals(breakStart, 0, 15);
+};
+
+export const getTimeRemaining = (targetTime, currentTime = new Date()) => {
+    if (!targetTime) return null;
+
+    const diff = new Date(targetTime).getTime() - currentTime.getTime();
+
+    if (diff <= 0) return { hours: 0, minutes: 0, seconds:0, expired: true };
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff % (1000 * 60 * 60) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return { hours, minutes, seconds, expired: false };
+};
+
+export const formatCountdown = timeRemaining => {
+    if (!timeRemaining || timeRemaining.expired) return "00:00:00";
+
+    const hours = timeRemaining.hours.toString().padStart(2, '0');
+    const minutes = timeRemaining.minutes.toString().padStart(2, '0');
+    const seconds = timeRemaining.seconds.toString().padStart(2, '0');
+
+    return `${hours}:${minutes}:${seconds}`;
 };

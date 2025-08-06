@@ -1,8 +1,20 @@
+import { useState } from "react";
 import { formatTime, getPreviousIntervals } from "../utils/timeHelpers";
+import CustomTimePicker from "./CustomTimePicker";
 
 function TimeSelector({ onSelectTime, onCancel }) {
+    const [showCustomPicker, setShowCustomPicker] = useState(false);
     const currentTime = new Date();
     const suggestedTimes = getPreviousIntervals(currentTime, 3);
+
+    if (showCustomPicker) {
+        return (
+            <CustomTimePicker
+                onSelectTime={onSelectTime}
+                onCancel={() => setShowCustomPicker(false)}
+            />
+        )
+    }
 
     return (
         <div className="space-y-2">
@@ -20,7 +32,10 @@ function TimeSelector({ onSelectTime, onCancel }) {
             ))}
 
             {/* Custom time button */}
-            <button className="w-full py-1 px-3 text-sm bg-purple-500 text-white rounded hover:bg-purple-600">
+            <button
+                className="w-full py-1 px-3 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
+                onClick={() => setShowCustomPicker(true)}
+            >
                 Custom Time
             </button>
 

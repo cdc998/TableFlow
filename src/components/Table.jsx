@@ -1,11 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PopupMenu from './PopupMenu';
 
 import greenTableSvg from '../assets/table_green.svg';
 import orangeTableSvg from '../assets/table_orange.svg';
 import greyTableSvg from '../assets/table_grey.svg';
+import { formatCountdown, getTimeRemaining } from '../utils/timeHelpers';
 
 function Table({ tableNumber, status, tableData, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable }) {
+    const [countdown, setCountdown] = useState("00:00");
+    const [countdownLabel, setCountdownLabel] = useState("");
+
+    useEffect(() => {
+        const updateCountdown = () => {
+            if (status === 'open' && tableData.nextBreakTime) {
+                const remaining = getTimeRemaining(tableData.nextBreakTime);
+                setCountdown(formatCountdown(remaining));
+                setCountdownLabel('Until Break');
+            } else if (status === 'on-break' && tableData.nextBreakTime) {
+                const remaining = getTimeRemaining(tableData.nextBreakTime);
+                setCountdown(formatCountdown(remaining));
+                setCountdownLabel('Break Ends');
+            } else {
+                setCountdown('');
+                setCountdownLabel('');
+            }
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 1000);
+
+        return () => clearInterval(interval);
+    }, [status, tableData.nextBreakTime]);
+
     const getTableSvg = (status) => {
         switch(status) {
             case 'open': return greenTableSvg;
@@ -30,6 +56,16 @@ function Table({ tableNumber, status, tableData, isPopupOpen, onOpenPopup, onClo
                 <span className="text-lg font-bold text-gray-800">
                     {tableNumber}
                 </span>
+                {countdown && (
+                    <div className='text-center'>
+                        <div className='text-sm font-semibold text-gray-700'>
+                            {countdown}
+                        </div>
+                        <div className='text-xs text-gray-600'>
+                            {countdownLabel}
+                        </div>
+                    </div>
+                )}
             </div>
             
             <PopupMenu

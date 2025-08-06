@@ -121,7 +121,6 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
                         className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
                         onClick={handleSetToClosed}
                     >
-                        
                         Set to Closed
                     </button>
                 </div>

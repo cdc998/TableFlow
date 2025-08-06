@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Copilot Chat (local exports)
+.chats/
+*.chat.json
