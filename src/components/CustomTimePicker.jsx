@@ -57,8 +57,8 @@ function CustomTimePicker({ onSelectTime, onCancel }) {
                     onChange={e => setSelectedDay(e.target.value)}
                     className="w-full p-1 border rounded text-sm"
                 >
-                    <option value="today">Today</option>
-                    <option value="yesterday">Yesterday</option>
+                    <option value="today">Today - {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}</option>
+                    <option value="yesterday">Yesterday - {new Date(Date.now() - 1000 * 60 * 60 * 24).toLocaleDateString('en-GB', {day: '2-digit', month: '2-digit' })}</option>
                 </select>
             </div>
 
