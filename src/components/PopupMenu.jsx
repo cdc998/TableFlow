@@ -1,6 +1,6 @@
 import { useState } from "react";
 import TimeSelector from "./TimeSelector";
-import { addTimeInIntervals, formatTime, getNextBreakTime, roundToNearestQuarter } from "../utils/timeHelpers";
+import { addTimeInIntervals, formatTime, getNextBreakTime, getNextFutureBreakTime, roundToNearestQuarter } from "../utils/timeHelpers";
 
 function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTable }) {
     if (!isOpen) return null;
@@ -15,13 +15,14 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         marginBottom: '10px'
     };
 
-    {/* Helper functions for status updates */}
     const handleSetToClosed = () => {
         onUpdateTable(tableNumber, {
             status: 'closed',
             startTime: null,
             breakTime: null,
-            nextBreakTime: null
+            nextBreakTime: null,
+            countdown: '',
+            countdownLabel: ''
         });
         onClose();
     };
@@ -39,16 +40,16 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
             onUpdateTable(tableNumber, {
                 status: 'on-break',
-                startTime: selectedTime,
+                startTime: selectedDateTime,
                 breakTime: breakStartTime,
                 nextBreakTime: breakEndTime
             });
         } else {
-            const nextBreakTime = getNextBreakTime(selectedTime);
+            const nextBreakTime = getNextFutureBreakTime(selectedTime, currentTime);
 
             onUpdateTable(tableNumber, {
                 status: 'open',
-                startTime: selectedTime,
+                startTime: selectedDateTime,
                 breakTime: null,
                 nextBreakTime: nextBreakTime
             });

@@ -62,21 +62,39 @@ export const getTimeRemaining = (targetTime, currentTime = new Date()) => {
 
     const diff = new Date(targetTime).getTime() - currentTime.getTime();
 
-    if (diff <= 0) return { hours: 0, minutes: 0, seconds:0, expired: true };
+    if (diff <= 0) return { hours: 0, minutes: 0, seconds:0 };
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor(diff % (1000 * 60 * 60) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    return { hours, minutes, seconds, expired: false };
+    return { hours, minutes, seconds };
 };
 
 export const formatCountdown = timeRemaining => {
-    if (!timeRemaining || timeRemaining.expired) return "00:00:00";
+    if (!timeRemaining) return "00:00:00";
 
     const hours = timeRemaining.hours.toString().padStart(2, '0');
     const minutes = timeRemaining.minutes.toString().padStart(2, '0');
     const seconds = timeRemaining.seconds.toString().padStart(2, '0');
 
     return `${hours}:${minutes}:${seconds}`;
+};
+
+export const getNextFutureBreakTime = (startTime, currentTime = new Date()) => {
+  let currentStartTime = new Date(startTime);
+  let nextBreak;
+  
+  let iterations = 0;
+  do {
+    nextBreak = getNextBreakTime(currentStartTime);
+    
+    if (nextBreak <= currentTime) {
+      currentStartTime = new Date(nextBreak.getTime() + 1000 * 60 * 15);
+    }
+    
+    iterations++;
+  } while (nextBreak <= currentTime && iterations < 20);
+  
+  return nextBreak;
 };

@@ -7,41 +7,6 @@ import greyTableSvg from '../assets/table_grey.svg';
 import { formatCountdown, getTimeRemaining } from '../utils/timeHelpers';
 
 function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable }) {
-    const [countdown, setCountdown] = useState("00:00");
-    const [countdownLabel, setCountdownLabel] = useState("");
-
-    useEffect(() => {
-        const updateCountdown = () => {
-            if (status === 'open' && tableData.nextBreakTime) {
-                const remaining = getTimeRemaining(tableData.nextBreakTime);
-                setCountdown(formatCountdown(remaining));
-                setCountdownLabel('Until Break');
-            } else if (status === 'on-break' && tableData.nextBreakTime) {
-                const remaining = getTimeRemaining(tableData.nextBreakTime);
-
-                if (remaining <= 0) {
-                    const newBreakTime = new Date(Date.now() + 1000 * 60 * 60 * 3);
-                    onUpdateTable(tableNumber, {
-                        status: 'open',
-                        nextBreakTime: newBreakTime
-                    });
-                    return;
-                }
-
-                setCountdown(formatCountdown(remaining));
-                setCountdownLabel('Break Ends');
-            } else {
-                setCountdown('');
-                setCountdownLabel('');
-            }
-        };
-
-        updateCountdown();
-        const interval = setInterval(updateCountdown, 1000);
-
-        return () => clearInterval(interval);
-    }, [status, tableData.nextBreakTime, tableNumber, onUpdateTable]);
-
     const getTableSvg = (status) => {
         switch(status) {
             case 'open': return greenTableSvg;
@@ -52,9 +17,12 @@ function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onO
 
     const tableSvg = getTableSvg(status);
 
+    const isLargerTable = tableData.position?.isFinalTable;
+    const tableSize = isLargerTable ? 'w-52 h-40' : 'w-40 h-40';
+
     return (
         <div 
-            className='relative w-40 h-40 cursor-pointer'
+            className={`relative ${tableSize} cursor-pointer`}
             onClick={() => onOpenPopup(tableNumber)}
         >
             <img 
@@ -75,13 +43,13 @@ function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onO
                     {status.replace('-', ' ')}
                 </span>
 
-                {countdown && (
+                {tableData.countdown && (
                     <div className='text-center mt-1'>
                         <div className='text-xs text-gray-300'>
-                            {countdownLabel}
+                            {tableData.countdownLabel}
                         </div>
                         <div className='text-xs font-semibold text-white'>
-                            {countdown}
+                            {tableData.countdown}
                         </div>
                     </div>
                 )}
