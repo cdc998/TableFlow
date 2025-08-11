@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Table from './components/Table';
-import { addTimeInIntervals, formatCountdown, getBreakEndTime, getNextBreakTime, getNextFutureBreakTime, getTimeRemaining, roundToNearestQuarter, shouldBeOnBreak } from './utils/timeHelpers';
+import { addTimeInIntervals, formatCountdown, generateSequence, getBreakEndTime, getCurrentBreakInfo, getNextBreakTime, getNextFutureBreakTime, getTimeRemaining, roundToNearestQuarter, shouldBeOnBreak } from './utils/timeHelpers';
 
 function App() {
   {/* States */}
@@ -72,43 +72,63 @@ function App() {
         prevTables.map(table => {
           if (table.status === 'closed' || !table.startTime) return table;
 
-          const shouldBreak = shouldBeOnBreak(table.startTime, roundedNow);
-
           let updatedTable = { ...table };
 
-          if (table.nextBreakTime) {
-            const remaining = getTimeRemaining(table.nextBreakTime);
-            if (remaining && remaining.hours >= 0 && remaining.minutes >= 0 && remaining.seconds >= 0) {
+          // Trial Break
+          if (table.isTrialBreak) {
+            const sequence = generateSequence(table.trialSeats || 9, table.trialStartSeat || 9);
+            const startTime = new Date(table.startTime);
+
+            const elapsedMs = now.getTime() - startTime.getTime();
+
+            const totalElapsedSeconds = Math.floor(elapsedMs / 1000);
+            const currentBlock = Math.floor(totalElapsedSeconds / (20 * 60));
+            const seatIndex = currentBlock % sequence.length;
+            const currentBreakSeat = sequence[seatIndex];
+
+            const nextBlockNumber = currentBlock + 1;
+            const nextChangeTime = new Date(startTime.getTime() + (nextBlockNumber * 20 * 60 * 1000));
+
+            updatedTable.currentBreakSeat = currentBreakSeat;
+            updatedTable.nextBreakTime = nextChangeTime;
+            updatedTable.status = 'trial-break';
+
+            const remaining = getTimeRemaining(nextChangeTime);
+            if (remaining && remaining.minutes >= 0 && remaining.seconds >= 0) {
               updatedTable.countdown = formatCountdown(remaining);
-              updatedTable.countdownLabel = table.status === 'open' ? 'Until Break' : 'Break Ends';
-            } else {
-              updatedTable.countdown = '';
-              updatedTable.countdownLabel = '';
+              updatedTable.countdownLabel = `Seat ${currentBreakSeat} Break Ends`;
             }
           } else {
-            updatedTable.countdown = '';
-            updatedTable.countdownLabel = '';
-          }
+            // 3 Hour 15 Minutes Table Break
+            const breakInfo = getCurrentBreakInfo(table.startTime, now);
 
-          if (shouldBreak && table.status === 'open') {
-            const breakStartTime = roundToNearestQuarter(roundedNow);
-            const breakEndTime = addTimeInIntervals(breakStartTime, 0, 15);
-            return {
-              ...updatedTable,
-              status: 'on-break',
-              breakTime: null,
-              nextBreakTime: breakEndTime
-            };
-          }
+            updatedTable.status = breakInfo.status;
+            updatedTable.nextBreakTime = breakInfo.nextBreakTime;
 
-          if (table.status === 'on-break' && table.nextBreakTime && table.nextBreakTime <= now) {
-            const nextBreakTime = getNextFutureBreakTime(table.startTime, now);
-            return {
-              ...updatedTable,
-              status: 'open',
-              breakTime: null,
-              nextBreakTime: nextBreakTime
-            };
+            if (breakInfo.nextBreakTime) {
+              const remaining = getTimeRemaining(breakInfo.nextBreakTime);
+              if (remaining && remaining.hours >= 0 && remaining.minutes >= 0 && remaining.seconds >= 0) {
+                updatedTable.countdown = formatCountdown(remaining);
+
+                const totalMinutesRemaining = (remaining.hours * 60) + remaining.minutes;
+
+                if (breakInfo.status === 'open') {
+                  if (totalMinutesRemaining <= 14) {
+                    updatedTable.status = 'warning-break';
+                    updatedTable.countdownLabel = 'Until Break';
+                  } else {
+                    updatedTable.status = 'open';
+                    updatedTable.countdownLabel = 'Until Break';
+                  }
+                } else {
+                  updatedTable.status = 'on-break';
+                  updatedTable.countdownLabel = 'Break Ends';
+                }
+              } else {
+                updatedTable.countdown = '';
+                updatedTable.countdownLabel = '';
+              }
+            }
           }
 
           return updatedTable;
@@ -118,7 +138,6 @@ function App() {
 
     const interval = setInterval(updateAllCountdowns, 1000);
     updateAllCountdowns();
-
     return () => clearInterval(interval);
   }, []);
 

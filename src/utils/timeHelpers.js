@@ -39,9 +39,50 @@ export const shouldBeOnBreak = (startTime, currentTime = new Date()) => {
     const timeDiff = currentTime.getTime() - new Date(startTime).getTime();
     const hoursElapsed = timeDiff / (1000 * 60 * 60);
 
+    if (hoursElapsed < 3) return false;
+
     const cyclePosition = hoursElapsed % 3.25;
     return cyclePosition >= 3 && cyclePosition < 3.25;
 };
+
+export const getCurrentBreakInfo = (startTime, currentTime = new Date()) => {
+    if (!startTime) return { status: 'closed' };
+
+    const timeDiff = currentTime.getTime() - new Date(startTime).getTime();
+    const hoursElapsed = timeDiff / (1000 * 60 * 60);
+
+    if (hoursElapsed < 3) {
+        const firstBreakTime = new Date(new Date(startTime).getTime() + (1000 * 60 * 60 * 3));
+        return {
+            status: 'open',
+            nextBreakTime: firstBreakTime,
+            currentBreakNumber: 0
+        };
+    }
+
+    const completeCycles = Math.floor(hoursElapsed / 3.25);
+    const cyclePosition = hoursElapsed % 3.25;
+
+    if (cyclePosition >= 3 && cyclePosition < 3.25) {
+        const cycleStartTime = new Date(new Date(startTime).getTime() + (completeCycles * 3.25 * 60 * 60 * 1000));
+        const breakEndTime = new Date(cycleStartTime.getTime() + (3.25 * 60 * 60 * 1000));
+
+        return {
+            status: 'on-break',
+            nextBreakTime: breakEndTime,
+            currentBreakNumber: completeCycles + 1
+        };
+    } else {
+        const nextCycleStart = new Date(new Date(startTime).getTime() + ((completeCycles + 1) * 3.25 * 60 * 60 * 1000));
+        const nextBreakTime = new Date(nextCycleStart.getTime() - (0.25 * 60 * 60 * 1000));
+
+        return {
+            status: 'open',
+            nextBreakTime: nextBreakTime,
+            currentBreakNumber: completeCycles + 1
+        };
+    }
+}
 
 export const getNextBreakTime = startTime => {
     if (!startTime) return null;
@@ -97,4 +138,24 @@ export const getNextFutureBreakTime = (startTime, currentTime = new Date()) => {
   } while (nextBreak <= currentTime && iterations < 20);
   
   return nextBreak;
+};
+
+export const generateSequence = (totalSeats, startingSeat) => {
+    const sequence = [];
+
+    for (let i = 0; i < totalSeats; i++) {
+        let currentSeat = startingSeat + i;
+
+        if (currentSeat > totalSeats) {
+            currentSeat = currentSeat - totalSeats;
+        }
+
+        sequence.push(currentSeat);
+
+        if (currentSeat === totalSeats) {
+            sequence.push('dealer');
+        }
+    }
+
+    return sequence;
 };

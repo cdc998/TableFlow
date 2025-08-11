@@ -4,13 +4,16 @@ import PopupMenu from './PopupMenu';
 import greenTableSvg from '../assets/table_green.svg';
 import orangeTableSvg from '../assets/table_orange.svg';
 import greyTableSvg from '../assets/table_grey.svg';
-import { formatCountdown, getTimeRemaining } from '../utils/timeHelpers';
+import yellowTableSvg from '../assets/table_yellow.svg';
+import blueTableSvg from '../assets/table_blue.svg';
 
 function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable }) {
     const getTableSvg = (status) => {
         switch(status) {
             case 'open': return greenTableSvg;
             case 'on-break': return orangeTableSvg;
+            case 'warning-break': return yellowTableSvg;
+            case 'trial-break': return blueTableSvg;
             default: return greyTableSvg;
         }
     };
@@ -40,10 +43,27 @@ function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onO
                 </span>
 
                 <span className='text-xs font-medium text-gray-300 uppercase tracking-wide block'>
-                    {status.replace('-', ' ')}
+                    {status === 'trial-break' ? 'TRIAL BREAK' :
+                     status === 'warning-break' ? 'BREAK SOON' : 
+                     status.replace('-', ' ')}
                 </span>
 
-                {tableData.countdown && (
+                {/* Trial break specific display */}
+                {status === 'trial-break' && tableData.currentBreakSeat && (
+                    <div className='text-center mt-1'>
+                        <div className='text-xs text-blue-300 font-medium'>
+                            Seat {tableData.currentBreakSeat}
+                        </div>
+                        {tableData.countdown && (
+                            <div className='text-xs font-semibold text-white'>
+                                {tableData.countdown}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Regular countdown display */}
+                {(status !== 'trial-break') && tableData.countdown && (
                     <div className='text-center mt-1'>
                         <div className='text-xs text-gray-300'>
                             {tableData.countdownLabel}
