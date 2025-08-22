@@ -49,15 +49,32 @@ function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onO
                 </span>
 
                 {/* Trial break specific display */}
-                {status === 'trial-break' && tableData.currentBreakSeat && (
+                {status === 'trial-break' && (
                     <div className='text-center mt-1'>
-                        <div className='text-xs text-blue-300 font-medium'>
-                            Seat {tableData.currentBreakSeat}
-                        </div>
-                        {tableData.countdown && (
-                            <div className='text-xs font-semibold text-white'>
-                                {tableData.countdown}
-                            </div>
+                        {tableData.currentBreakSeat ? (
+                            // ✅ Active trial break - show current seat
+                            <>
+                                <div className='text-xs text-blue-300 font-medium'>
+                                    Seat {tableData.currentBreakSeat}
+                                </div>
+                                {tableData.countdown && (
+                                    <div className='text-xs font-semibold text-white'>
+                                        {tableData.countdown}
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            // ✅ Future start - show countdown to start
+                            <>
+                                <div className='text-xs text-blue-300 font-medium'>
+                                    {tableData.countdownLabel || 'Starting Soon'}
+                                </div>
+                                {tableData.countdown && (
+                                    <div className='text-xs font-semibold text-white'>
+                                        {tableData.countdown}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 )}
