@@ -2,7 +2,7 @@ import { useState } from "react";
 import TimeSelector from "./TimeSelector";
 import TrialBreakSelector from "./TrialBreakSelector";
 import TrialBreakTimePicker from "./TrialBreakTimePicker";
-import { addTimeInIntervals, formatTime, getNextBreakTime, getNextFutureBreakTime, roundToNearestQuarter } from "../utils/timeHelpers";
+import { formatTime, roundToNearestQuarter } from "../utils/timeHelpers";
 
 function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTable }) {
     if (!isOpen) return null;
@@ -12,6 +12,8 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     const [showTrialBreakSelector, setShowTrialBreakSelector] = useState(false);
     const [showTrialTimePicker, setShowTrialTimePicker] = useState(false);
     const [selectedTrialSettings, setSelectedTrialSettings] = useState(null);
+    const [showCloseTypeChoice, setShowCloseTypeChoice] = useState(false);
+    const [showCustomCloseTimeSelector, setShowCustomCloseTimeSelector] = useState(false);
 
     const popupStyle = {
         position: 'absolute',
@@ -20,23 +22,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         transform: 'translateX(-50%)',
         marginBottom: '10px'
     };
-
-    const handleSetToClosed = () => {
-        onUpdateTable(tableNumber, {
-            status: 'closed',
-            startTime: null,
-            breakTime: null,
-            nextBreakTime: null,
-            countdown: '',
-            countdownLabel: '',
-            isTrialBreak: false,
-            trialSeats: null,
-            trialStartSeat: null,
-            currentBreakSeat: null
-        });
-        onClose();
-    };
-
+    
     const handleOpenTable = selectedTime => {
         const currentTime = roundToNearestQuarter(new Date());
         const selectedDateTime = new Date(selectedTime);
@@ -63,6 +49,102 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         setShowTimeSelector(false);
         setShowTrialTimePicker(false);
         setSelectedTrialSettings(null);
+        onClose();
+    };
+
+    const handleSetToClosed = () => {
+        onUpdateTable(tableNumber, {
+            status: 'closed',
+            startTime: null,
+            breakTime: null,
+            nextBreakTime: null,
+            countdown: '',
+            countdownLabel: '',
+            isTrialBreak: false,
+            trialSeats: null,
+            trialStartSeat: null,
+            currentBreakSeat: null
+        });
+        onClose();
+    };
+
+    const handleCloseNow = () => {
+        onUpdateTable(tableNumber, {
+            status: 'closed',
+            startTime: null,
+            breakTime: null,
+            nextBreakTime: null,
+            countdown: '',
+            countdownLabel: '',
+            isTrialBreak: false,
+            trialSeats: null,
+            trialStartSeat: null,
+            currentBreakSeat: null,
+            customCloseTime: new Date()
+        });
+        onClose();
+    };
+
+    const handleCustomCloseTime = (selectedTime) => {
+        if (tableData.startTime && selectedTime < new Date(tableData.startTime)) {
+            alert(`Cannot close table before it opened at ${new Date(tableData.startTime).toLocaleString()}`);
+            return;
+        }
+
+        const now = new Date();
+        const selectedHour = selectedTime.getHours();
+
+        const isValidGamingHour = selectedHour >= 12 || selectedHour <= 4;
+
+        if (!isValidGamingHour) {
+            alert('Cannot close table outside operating hours (12:00 PM - 4:00 AM');
+            return;
+        }
+
+        const getCurrentGamingDay = () => {
+            const currentHour = now.getHours();
+
+            if (currentHour < 12) {
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                return yesterday;
+            }
+            return now;
+        };
+
+        const currentGamingDay = getCurrentGamingDay();
+        const selectedGamingDay = (() => {
+            const selectedHour = selectedTime.getHours();
+
+            if (selectedHour < 12) {
+                const prevDay = new Date(selectedTime);
+                prevDay.setDate(prevDay.getDate() - 1);
+                return prevDay;
+            }
+            return selectedTime;
+        })();
+
+        if (currentGamingDay.toDateString() !== selectedGamingDay.toDateString()) {
+            alert('Can only close table within the current gaming day');
+            return;
+        }
+
+        onUpdateTable(tableNumber, {
+            status: 'closed',
+            startTime: null,
+            breakTime: null,
+            nextBreakTime: null,
+            countdown: '',
+            countdownLabel: '',
+            isTrialBreak: false,
+            trialSeats: null,
+            trialStartSeat: null,
+            currentBreakSeat: null,
+            customCloseTime: selectedTime
+        });
+
+        setShowCustomCloseTimeSelector(false);
+        setShowCloseTypeChoice(false);
         onClose();
     };
 
@@ -163,6 +245,69 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         )
     }
 
+    // Close type choice
+    if (showCloseTypeChoice) {
+        return (
+            <div style={popupStyle} className="z-50">
+                <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="font-semibold text-sm mb-3">Choose Close Time:</h3>
+
+                    <div className="space-y-2">
+                        <button
+                            onClick={handleCloseNow}
+                            className="w-full py-2 px-3 text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center"
+                        >
+                            <span>Close Now</span>
+                            <span className="text-xs ml-2">({new Date().toLocaleTimeString()})</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowCloseTypeChoice(false);
+                                setShowCustomCloseTimeSelector(true);
+                            }}
+                            className="w-full py-2 px-3 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                        >
+                            Custom Close Time
+                        </button>
+
+                        <button
+                            onClick={() => setShowCloseTypeChoice(false)}
+                            className="w-full py-1 px-3 text-sm bg-gray-400 text-white rounded hover:bg-gray-500"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Custom close time selector
+    if (showCustomCloseTimeSelector) {
+        return (
+            <div style={popupStyle} className="z-50">
+                <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}> 
+                    <div className="mb-3">
+                        <h3 className="font-semibold text-sm mb-1">Close Table {tableNumber}</h3>
+                        {tableData.startTime && (
+                            <p className="text-xs text-gray-600">
+                                Opened: {formatTime(new Date(tableData.startTime))}
+                            </p>
+                        )}
+                    </div>
+
+                    <TimeSelector 
+                        onSelectTime={handleCustomCloseTime}
+                        onCancel={() => {
+                            setShowCustomCloseTimeSelector(false);
+                            setShowCloseTypeChoice(true);
+                        }}
+                    />
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div style={popupStyle} className="z-50">
             <div
@@ -208,19 +353,23 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
                 {/* Action buttons */}
                 <div className="mt-3 space-y-2">
-                    <button 
-                        className="w-full py-2 px-3 text-sm bg-green-500 text-white rounded hover:bg-green-600"
-                        onClick={() => setShowBreakTypeChoice(true)}
-                    >
-                        Set to Open
-                    </button>
+                    {status === 'closed' && (
+                        <button 
+                            className="w-full py-2 px-3 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                            onClick={() => setShowBreakTypeChoice(true)}
+                        >
+                            Set to Open
+                        </button>
+                    )}
 
-                    <button
-                        className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
-                        onClick={handleSetToClosed}
-                    >
-                        Set to Closed
-                    </button>
+                    {status !== 'closed' && (
+                        <button
+                            className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                            onClick={() => setShowCloseTypeChoice(true)}
+                        >
+                            Set to Closed
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

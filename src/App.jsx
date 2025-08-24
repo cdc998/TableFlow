@@ -1,4 +1,4 @@
-import { useState, useEffect, startTransition } from 'react';
+import { useState, useEffect} from 'react';
 import Table from './components/Table';
 import { formatCountdown, generateSequence, getCurrentBreakInfo, getTimeRemaining } from './utils/timeHelpers';
 
@@ -19,7 +19,6 @@ function App() {
       console.warn('Failed to save tables to localStorage:', error);
     }
   };
-
   const loadTablesState = () => {
     try {
       const savedData = localStorage.getItem('tableflow-tables');
@@ -41,7 +40,6 @@ function App() {
     }
     return null;
   };
-
   const getDefaultTableProperties = () => ({
     status: "closed",
     startTime: null,
@@ -54,7 +52,6 @@ function App() {
     trialStartSeat: null,
     currentBreakSeat: null
   });
-
   const getInitialTables = () => {
     const savedTables = loadTablesState();
     if (savedTables && savedTables.length > 0) {
@@ -114,9 +111,12 @@ function App() {
   // states
   const [currentScreen, setCurrentScreen] = useState('tables');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   
   const [tables, setTables] = useState(getInitialTables);
   const [activePopupTable, setActivePopupTable] = useState(null);
+
+
 
   // Gaming day = 12pm to next day 4am
   const getCurrentGamingDay = () => {
@@ -132,15 +132,15 @@ function App() {
     return now;
   };
 
-  // logging
+  // logging with unique session ID
   const loggedActions = new Set();
-  
   const logTableActivity = (tableNumber, action, details = {}) => {
     try {
       const gamingDay = getCurrentGamingDay();
-      const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}}`;
+      const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}`;
 
       const logEntry = {
+        id: `${tableNumber}-${action}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
         gamingDay: gamingDayStr,
         table: tableNumber,
@@ -164,67 +164,87 @@ function App() {
   // history data for display
   const getHistoryData = () => {
     const gamingDay = getCurrentGamingDay();
-    const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}}`;
+    const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}`;
 
     const logKey = `tableflow-logs-${gamingDayStr}`;
     const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
 
-    const tableSessions = {};
+    const sessions = {};
 
     logs.forEach(log => {
-      if (!tableSessions[log.table]) {
-        tableSessions[log.table] = [];
+      if (log.action === 'open') {
+        const sessionId = log.id;
+        sessions[sessionId] = {
+          sessionId: sessionId,
+          tableNumber: log.table,
+          openLog: log,
+          closeLog: null
+        };
+      } else if (log.action === 'close') {
+        // find most recent open without close
+        const tableOpenSessions = Object.values(sessions).filter(s =>
+          s.tableNumber === log.table && !s.closeLog
+        );
+
+        if (tableOpenSessions.length > 0) {
+          const mostRecentSession = tableOpenSessions.sort((a, b) =>
+            new Date(b.openLog.timestamp) - new Date(a.openLog.timestamp)
+          )[0];
+
+          mostRecentSession.closeLog = log;
+        }
       }
-      tableSessions[log.table].push(log);
     });
 
     // currently open tables not in logs
     tables.forEach(table => {
       if (table.startTime && table.status !== 'closed') {
-        if (!tableSessions[table.tableNumber]) {
-          tableSessions[table.tableNumber] = [];
-        }
+        const sessionId = `current-${table.tableNumber}-${table.startTime.getTime()}`;
 
-        const hasOpenLog = tableSessions[table.tableNumber].some(log => log.action === 'open');
-        if (!hasOpenLog) {
-          tableSessions[table.tableNumber].push({
-            timestamp: table.startTime.toISOString(),
-            table: table.tableNumber,
-            action: 'open',
-            startTime: table.startTime.toISOString(),
-            isTrialBreak: table.isTrialBreak,
-            trialSeats: table.trialSeats,
-            trialStartSeat: table.trialStartSeat
-          });
+        const existingSession = Object.values(sessions).find(s =>
+          s.tableNumber === table.tableNumber &&
+          s.openLog.startTime === table.startTime.toISOString() &&
+          !s.closeLog
+        );
+
+        if (!existingSession) {
+          sessions[sessionId] = {
+            sessionId: sessionId,
+            tableNumber: table.tableNumber,
+            openLog: {
+              id: sessionId,
+              timestamp: table.startTime.toISOString(),
+              table: table.tableNumber,
+              action: 'open',
+              startTime: table.startTime.toISOString(),
+              isTrialBreak: table.isTrialBreak,
+              trialSeats: table.trialSeats,
+              trialStartSeat: table.trialStartSeat
+            },
+            closeLog: null
+          };
         }
       }
     });
 
-    const historyItems = [];
+    const historyItems = Object.values(sessions).map(session => {
+      const currentTable = tables.find(t => t.tableNumber === session.tableNumber);
+      const isCurrentlyOpen = currentTable && currentTable.status !== 'closed' && !session.closeLog;
 
-    Object.entries(tableSessions).forEach(([tableNumber, sessions]) => {
-      const openLog = sessions.find(s => s.action === 'open');
-      const closeLog = sessions.find(s => s.action === 'close');
-
-      if (openLog) {
-        const currentTable = tables.find(t => t.tableNumber === tableNumber);
-        const isCurrentlyOpen = currentTable && currentTable.status !== 'closed';
-
-        historyItems.push({
-          tableNumber,
-          openTime: new Date(openLog.startTime),
-          closeTime: closeLog ? new Date(closeLog.timestamp) : null,
-          duration: closeLog? closeLog.duration : null,
-          breakType: openLog.isTrialBreak ? `Trial (${openLog.trialSeats} seats)` : 'Regular',
-          status: isCurrentlyOpen ? 'Open' : 'Closed',
-          currentStatus: isCurrentlyOpen ? currentTable.status : 'closed'
-        });
-      }
+      return {
+        sessionId: session.sessionId,
+        tableNumber: session.tableNumber,
+        openTime: new Date(session.openLog.startTime),
+        closeTime: session.closeLog ? new Date(session.closeLog.timestamp) : null,
+        duration: session.closeLog ? session.closeLog.duration : null,
+        breakType: session.openLog.isTrialBreak ? `Trial (${session.openLog.trialSeats} seats)` : 'Regular',
+        status: isCurrentlyOpen ? 'Open' : 'Closed',
+        isCompleteSession: !!session.closeLog
+      };
     });
 
     return historyItems.sort((a, b) => b.openTime - a.openTime);
   };
-
   const renderHistoryScreen = () => {
     const historyData = getHistoryData();
     const gamingDay = getCurrentGamingDay();
@@ -251,6 +271,7 @@ function App() {
                     <th className='text-left py-3 px-4'>Opened At</th>
                     <th className='text-left py-3 px-4'>Closed At</th>
                     <th className='text-left py-3 px-4'>Duration</th>
+                    <th className='text-left py-3 px-4'>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,7 +293,19 @@ function App() {
                         {item.closeTime ? item.closeTime.toLocaleString() : 'Still Open'}</td>
                       <td className='py-3 px-4 text-gray-300'>
                         {item.duration ||
-                          `${Math.round((new Date().getTime() - item.openTime.getTime()) / (1000 * 60))} minutes`}</td>
+                          `${Math.round((new Date().getTime() - item.openTime.getTime()) / (1000 * 60))} minutes`}
+                      </td>
+                      <td className='py-3 px-4'>
+                          {item.isCompleteSession && (
+                            <button
+                              onClick={() => deleteSession(item.sessionId)}
+                              className='px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors'
+                              title='Delete this session'
+                            >
+                              Delete
+                            </button>
+                          )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -284,15 +317,44 @@ function App() {
     )
   }
 
+  // delete session function
+  const deleteSession = (sessionId) => {
+    if (confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      const gamingDay = getCurrentGamingDay();
+      const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}`;
+
+      const logKey = `tableflow-logs-${gamingDayStr}`;
+      const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
+
+      const updatedLogs = logs.filter(log => {
+        // remove logs that belong to this session
+        if (log.id === sessionId) return false;
+        
+        // Close logs to find matching open log sessionId
+        if (log.action === 'close') {
+          const openLog = logs.find(l =>
+            l.action === 'open' &&
+            l.table === log.table &&
+            l.id === sessionId
+          );
+          if (openLog) return false;
+        }
+
+        return true;
+      });
+
+      localStorage.setItem(logKey, JSON.stringify(updatedLogs));
+
+      setCurrentScreen('history');
+    }
+  };
+
   // csv export
   const handleExport = () => {
     setIsDropdownOpen(false);
 
     const gamingDay = getCurrentGamingDay();
-    const yyyy = gamingDay.getFullYear();
-    const mm = String(gamingDay.getMonth() + 1).padStart(2, '0');
-    const dd = String(gamingDay.getDate()).padStart(2, '0');
-    const gamingDayStr = `${yyyy}-${mm}-${dd}`;
+    const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}`;
 
     const gamingDayStart = new Date(gamingDay);
     gamingDayStart.setHours(12, 0, 0, 0);
@@ -315,48 +377,10 @@ function App() {
       intervalHeaders.push(timeStr);
     }
 
-    // tables from logs
-    const logKey = `tableflow-logs-${gamingDayStr}`;
-    const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
+    const historyData = getHistoryData();
+    const regularSessions = historyData.filter(session => session.breakType === 'Regular');
 
-    // build history from logs
-    const tableHistory = {};
-    logs.forEach(log => {
-      if (!tableHistory[log.table]) {
-        tableHistory[log.table] = [];
-      }
-      tableHistory[log.table].push(log);
-    });
-
-    // currently open tables
-    tables.forEach(table => {
-      if (table.startTime && !table.isTrialBreak) {
-        const startTime = new Date(table.startTime);
-        if (startTime >= gamingDayStart && startTime < gamingDayEnd) {
-          if (!tableHistory[table.tableNumber]) {
-            tableHistory[table.tableNumber] = [];
-          }
-
-          // check open log
-          const hasOpenLog = tableHistory[table.tableNumber].some(log => log.action === 'open');
-          if (!hasOpenLog) {
-            tableHistory[table.tableNumber].push({
-              table: table.tableNumber,
-              action: 'open',
-              startTime: table.startTime.toISOString(),
-              isTrialBreak: table.isTrialBreak
-            });
-          }
-        }
-      }
-    });
-
-    const openedTables = Object.keys(tableHistory).filter(tableNumber => {
-      const tableLogs = tableHistory[tableNumber];
-      return tableLogs.some(log => log.action === 'open' && !log.isTrialBreak);
-    });
-
-    if (openedTables.length === 0) {
+    if (regularSessions.length === 0) {
       const csvContent = [intervalHeaders].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -373,30 +397,39 @@ function App() {
       return;
     }
 
+    // group sessions by table number
+    const tableSessionsMap = {};
+    regularSessions.forEach(session => {
+      if (!tableSessionsMap[session.tableNumber]) {
+        tableSessionsMap[session.tableNumber] = [];
+      }
+      tableSessionsMap[session.tableNumber].push(session);
+    });
+
     const csvData = [intervalHeaders];
 
-    openedTables.forEach(tableNumber => {
+    Object.entries(tableSessionsMap).forEach(([tableNumber, sessions]) => {
       const row = [tableNumber];
-      const tableLogs = tableHistory[tableNumber];
-      const openLog = tableLogs.find(log => log.action === 'open');
-
-      if (!openLog) return;
-
-      const tableStartTime = new Date(openLog.startTime);
-
-      const mockTable = {
-        startTime: tableStartTime,
-        isTrialBreak: false
-      };
 
       timeIntervals.forEach(intervalTime => {
         const intervalEnd = new Date(intervalTime.getTime() + (1000 * 60 * 15));
-
-        if (intervalTime < tableStartTime) {
+        const activeSession = sessions.find(session => {
+          const openTime = session.openTime;
+          const closeTime = session.closeTime || new Date();
+  
+          return openTime <= intervalEnd && closeTime > intervalTime;
+        });
+  
+        if (!activeSession) {
           row.push('■');
         } else {
+          const mockTable = {
+            startTime: activeSession.openTime,
+            isTrialBreak: false
+          };
+  
           const hadBreakInInterval = checkBreakInInterval(mockTable, intervalTime, intervalEnd);
-
+  
           if (hadBreakInInterval) {
             row.push('X');
           } else {
@@ -423,9 +456,8 @@ function App() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    alert(`Exported ${openedTables.length} table(s) timeline for gaming day ${gamingDayStr}`);
+    alert(`Exported ${Object.keys(tableSessionsMap).length} table(s) timeline for gaming day ${gamingDayStr}`);
   };
-
   const checkBreakInInterval = (table, intervalStart, intervalEnd) => {
     if (table.isTrialBreak) {
       return false;
@@ -469,7 +501,6 @@ function App() {
 
     return false;
   };
-
   const exportBackupLogs = () => {
     setIsDropdownOpen(false);
 
@@ -644,14 +675,6 @@ function App() {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [isDropdownOpen]);
-  
-  const clearAllTables = () => {
-    const resetTables = tables.map(table => ({
-      ...table,
-      ...getDefaultTableProperties()
-    }));
-    setTables(resetTables);
-  };
 
   // update Table
   const updateTable = (tableNumber, updates) => {
@@ -689,6 +712,33 @@ function App() {
     });
   };
 
+  // reset function
+  const handleResetConfirm = () => {
+    const gamingDay = getCurrentGamingDay();
+    const gamingDayStr = `${gamingDay.getFullYear()}-${String(gamingDay.getMonth() + 1).padStart(2, '0')}-${String(gamingDay.getDate()).padStart(2, '0')}`;
+
+    // clear tables
+    const resetTables = tables.map(table => ({
+      ...table,
+      ...getDefaultTableProperties()
+    }));
+    setTables(resetTables);
+
+    // clear storage
+    localStorage.removeItem('tableflow-tables');
+    localStorage.removeItem(`tableflow-logs-${gamingDayStr}`);
+
+    // clear logged set
+    loggedActions.clear();
+
+    setShowResetConfirm(false);
+
+    alert(`All tables and gaming day ${gamingDayStr} logs have been cleared.`)
+  };
+  const clearAllTables = () => {
+    setShowResetConfirm(true);
+  };
+
   // popup props
   const handleOpenPopup = tableNumber => {
     setActivePopupTable(tableNumber);
@@ -700,6 +750,37 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-800">
+      {/* Reset confirmation modal */}
+      {showResetConfirm && (
+        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+          <div className='bg-gray-900 rounded-lg p-6 max-w-md mx-4'>
+            <h3 className='text-xl font-bold text-white mb-4'>Confirm Reset</h3>
+            <p className='text-gray-300 mb-6'>
+              This will permanently:
+              <br />• Close all open tables
+              <br />• Clear all table states
+              <br />• Delete today's gaming day Logs
+              <br /><br />
+              This action cannot be undone. Are you sure?
+            </p>
+            <div className='flex space-x-4'>
+              <button
+                onClick={handleResetConfirm}
+                className='px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-medium'
+              >
+                Yes, Reset Everything
+              </button>
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className='px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 font-medium'
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top menu bar */}
       <div className='w-full bg-gray-900 border-b border-gray-700 px-6 py-3'>
         <div className='max-w-7xl mx-auto flex items-center justify-between'>
@@ -740,7 +821,7 @@ function App() {
                     e.stopPropagation();
                     setIsDropdownOpen(!isDropdownOpen);
                   }}
-                  className='px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium transition-colors'
+                  className='px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium transition-colors flex items-center space-x-2'
                 >
                   <span>Export</span>
                   <svg className='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
