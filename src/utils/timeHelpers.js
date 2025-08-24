@@ -159,3 +159,47 @@ export const generateSequence = (totalSeats, startingSeat) => {
 
     return sequence;
 };
+
+export const checkBreakInInterval = (table, intervalStart, intervalEnd) => {
+    if (table.isTrialBreak) {
+      return false;
+    }
+
+    if (!table.startTime) return false;
+
+    const startTime = new Date(table.startTime);
+
+    if (intervalEnd <= startTime) return false;
+
+    const tableStartMs = startTime.getTime();
+    const intervalStartMs = intervalStart.getTime();
+    const intervalEndMs = intervalEnd.getTime();
+
+    let breakNumber = 0;
+
+    while (true) {
+        let breakStartMs;
+
+        if (breakNumber === 0) {
+            breakStartMs = tableStartMs + (1000 * 60 * 60 * 3);
+        } else {
+            breakStartMs = tableStartMs + (1000 * 60 * 60 * 3) + (breakNumber * 1000 * 60 * 60 * 3.25);
+        }
+
+        const breakEndMs = breakStartMs + (1000 * 60 * 15);
+
+        if (breakStartMs >= intervalEndMs) {
+            break;
+        }
+
+        if (breakStartMs < intervalEndMs && breakEndMs > intervalStartMs) {
+            return true;
+        }
+
+        breakNumber++;
+
+        if (breakNumber > 20) break;
+    }
+
+    return false;
+};
