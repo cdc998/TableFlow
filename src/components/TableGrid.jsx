@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Table from './Table';
 
-function TableGrid({ tables, onUpdateTable }) {
+function TableGrid({ tables, onUpdateTable, onCancelPlannedOpen }) {
   const [activePopupTable, setActivePopupTable] = useState(null);
 
   const handleOpenPopup = (tableNumber) => {
@@ -33,6 +33,7 @@ function TableGrid({ tables, onUpdateTable }) {
               onOpenPopup={handleOpenPopup}
               onClosePopup={handleClosePopup}
               onUpdateTable={onUpdateTable}
+              onCancelPlannedOpen={onCancelPlannedOpen}
             />
           </div>
         ))}

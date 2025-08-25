@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { saveTablesState, loadTablesState, logTableActivity, clearCurrentGameDayStorage } from '../services/storageService';
+import { saveTablesState, loadTablesState, logTableActivity, clearCurrentGameDayStorage, removeTableActivityLog } from '../services/storageService';
 import { INITIAL_TABLES } from '../config/tableConfig';
 import { formatCountdown, generateSequence, getCurrentBreakInfo, getTimeRemaining } from '../utils/timeHelpers';
 
 export const useTableData = () => {
   const loggedActionsRef = useRef(new Set());
+  const [refreshHistoryTrigger, setRefreshHistoryTrigger] = useState(0);
 
   const getInitialTables = () => {
     const savedTables = loadTablesState();
@@ -127,7 +128,9 @@ export const useTableData = () => {
 
       // unique keys for logs
       const openKey = `${tableNumber}-open-${updates.startTime?.getTime() || 'none'}`;
-      const closeKey = `${tableNumber}-close-${updates.customCloseTime?.getTime() || Date.now()}`;
+
+      const actualCloseTime = updates.closeTime || new Date();
+      const closeKey = `${tableNumber}-close-${actualCloseTime.getTime()}`;
 
       // log open
       if (updates.startTime && !currentTable.startTime && !loggedActionsRef.current.has(openKey)) {
@@ -144,12 +147,11 @@ export const useTableData = () => {
       if (updates.status === 'closed' && currentTable.status !== 'closed' && !loggedActionsRef.current.has(closeKey)) {
         loggedActionsRef.current.add(closeKey);
         
-        const closeTime = updates.customCloseTime || new Date();
         const startTime = currentTable.startTime ? new Date(currentTable.startTime) : new Date();
-        const duration = Math.round((closeTime.getTime() - startTime.getTime()) / (1000 * 60));
+        const duration = Math.round((actualCloseTime.getTime() - startTime.getTime()) / (1000 * 60));
         
         logTableActivity(tableNumber, 'close', {
-          timestamp: closeTime.toISOString(),
+          timestamp: actualCloseTime.toISOString(),
           duration: `${duration} minutes`
         });
       }
@@ -174,9 +176,47 @@ export const useTableData = () => {
     return gamingDayStr;
   };
 
-  return {
-    tables,
-    updateTable,
-    resetAllTables
-  };
+    const cancelPlannedOpen = (tableNumber) => {
+        setTables(prevTables => {
+            const currentTable = prevTables.find(t => t.tableNumber === tableNumber);
+
+            if (currentTable && currentTable.startTime) {
+                const openKey = `${tableNumber}-open-${currentTable.startTime.getTime()}`;
+
+                loggedActionsRef.current.delete(openKey);
+
+                removeTableActivityLog(tableNumber, 'open', currentTable.startTime);
+
+                const updatedTables = prevTables.map(table =>
+                    table.tableNumber === tableNumber ? {
+                    ...table,
+                    status: 'closed',
+                    startTime: null,
+                    breakTime: null,
+                    nextBreakTime: null,
+                    countdown: '',
+                    countdownLabel: '',
+                    isTrialBreak: false,
+                    trialSeats: null,
+                    trialStartSeat: null,
+                    currentBreakSeat: null
+                    } : table
+                );
+
+                setRefreshHistoryTrigger(prev => prev + 1);
+
+                return updatedTables;
+            }
+
+            return prevTables;
+        });
+    };
+
+    return {
+        tables,
+        updateTable,
+        resetAllTables,
+        cancelPlannedOpen,
+        refreshHistoryTrigger
+    };
 };

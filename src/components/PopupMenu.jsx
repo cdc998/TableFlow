@@ -2,9 +2,10 @@ import { useState } from "react";
 import TimeSelector from "./TimeSelector";
 import TrialBreakSelector from "./TrialBreakSelector";
 import TrialBreakTimePicker from "./TrialBreakTimePicker";
-import { formatTime, roundToNearestQuarter } from "../utils/timeHelpers";
+import { formatTime } from "../utils/timeHelpers";
+import { isValidCloseTime } from "../services/gamingDayService";
 
-function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTable }) {
+function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTable, onCancelPlannedOpen }) {
     if (!isOpen) return null;
 
     const [showTimeSelector, setShowTimeSelector] = useState(false);
@@ -22,9 +23,15 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         transform: 'translateX(-50%)',
         marginBottom: '10px'
     };
+
+    const isPlannedForFuture = () => {
+        if (!tableData.startTime) return false;
+        const now = new Date();
+        const startTime = new Date(tableData.startTime);
+        return startTime > now;
+    };
     
     const handleOpenTable = selectedTime => {
-        const currentTime = roundToNearestQuarter(new Date());
         const selectedDateTime = new Date(selectedTime);
 
         const tableUpdate = {
@@ -69,6 +76,23 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     };
 
     const handleCloseNow = () => {
+        const now = new Date();
+
+        if (isPlannedForFuture()) {
+            const startTime = new Date(tableData.startTime);
+            const confirmed = confirm(
+                `This table is scheduled to open at ${formatTime(startTime)}. \n\n` +
+                `Clicking "Close Now" will cancel this planned opening. \n\n` +
+                `Are you sure you want to cancel the planned opening?`
+            );
+
+            if (!confirmed) return;
+
+            onCancelPlannedOpen(tableNumber);
+            onClose();
+            return;
+        }
+
         onUpdateTable(tableNumber, {
             status: 'closed',
             startTime: null,
@@ -80,52 +104,22 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
             trialSeats: null,
             trialStartSeat: null,
             currentBreakSeat: null,
-            customCloseTime: new Date()
+            closeTime: new Date()
         });
         onClose();
     };
 
     const handleCustomCloseTime = (selectedTime) => {
-        if (tableData.startTime && selectedTime < new Date(tableData.startTime)) {
-            alert(`Cannot close table before it opened at ${new Date(tableData.startTime).toLocaleString()}`);
+        const openTime = tableData.startTime ? new Date(tableData.startTime) : null;
+        const validation = isValidCloseTime(selectedTime, openTime);
+
+        if (!validation.valid) {
+            alert(validation.reason);
             return;
         }
 
-        const now = new Date();
-        const selectedHour = selectedTime.getHours();
-
-        const isValidGamingHour = selectedHour >= 12 || selectedHour <= 4;
-
-        if (!isValidGamingHour) {
-            alert('Cannot close table outside operating hours (12:00 PM - 4:00 AM');
-            return;
-        }
-
-        const getCurrentGamingDay = () => {
-            const currentHour = now.getHours();
-
-            if (currentHour < 12) {
-                const yesterday = new Date(now);
-                yesterday.setDate(yesterday.getDate() - 1);
-                return yesterday;
-            }
-            return now;
-        };
-
-        const currentGamingDay = getCurrentGamingDay();
-        const selectedGamingDay = (() => {
-            const selectedHour = selectedTime.getHours();
-
-            if (selectedHour < 12) {
-                const prevDay = new Date(selectedTime);
-                prevDay.setDate(prevDay.getDate() - 1);
-                return prevDay;
-            }
-            return selectedTime;
-        })();
-
-        if (currentGamingDay.toDateString() !== selectedGamingDay.toDateString()) {
-            alert('Can only close table within the current gaming day');
+        if (isPlannedForFuture()) {
+            alert('Cannot set custom close time for tables scheduled to open in the future. Use "Close Now" to cancel the planned opening instead.')
             return;
         }
 
@@ -140,7 +134,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
             trialSeats: null,
             trialStartSeat: null,
             currentBreakSeat: null,
-            customCloseTime: selectedTime
+            closeTime: selectedTime
         });
 
         setShowCustomCloseTimeSelector(false);
@@ -247,28 +241,47 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
     // Close type choice
     if (showCloseTypeChoice) {
+        const isPlanned = isPlannedForFuture();
+
         return (
             <div style={popupStyle} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="font-semibold text-sm mb-3">Choose Close Time:</h3>
+                    <h3 className="font-semibold text-sm mb-3">
+                        {isPlanned ? 'Cancel Planned Opening?' : 'Choose Close Time:'}
+                    </h3>
+
+                    {isPlanned && (
+                        <div className="mb-3 p-2 bg-yellow-100 rounded text-xs text-yellow-800">
+                            ⚠️ Table scheduled to open at {formatTime(new Date(tableData.startTime))}
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <button
                             onClick={handleCloseNow}
-                            className="w-full py-2 px-3 text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center justify-center"
+                            className={`w-full py-2 px-3 text-sm text-white rounded flex items-center justify-center ${
+                                isPlanned
+                                    ? 'bg-orange-500 hover:bg-orange-600'
+                                    : 'bg-red-500 hover:bg-red-600'
+                            }`}
                         >
-                            <span>Close Now</span>
-                            <span className="text-xs ml-2">({new Date().toLocaleTimeString()})</span>
+                            <span>{isPlanned ? 'Cancel Planned Opening' : 'Close Now'}</span>
+                            {!isPlanned && (
+                                <span className="text-xs ml-2">({new Date().toLocaleTimeString()})</span>
+                            )}
                         </button>
-                        <button
-                            onClick={() => {
-                                setShowCloseTypeChoice(false);
-                                setShowCustomCloseTimeSelector(true);
-                            }}
-                            className="w-full py-2 px-3 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
-                        >
-                            Custom Close Time
-                        </button>
+
+                        {!isPlanned && (
+                            <button
+                                onClick={() => {
+                                    setShowCloseTypeChoice(false);
+                                    setShowCustomCloseTimeSelector(true);
+                                }}
+                                className="w-full py-2 px-3 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+                            >
+                                Custom Close Time
+                            </button>
+                        )}
 
                         <button
                             onClick={() => setShowCloseTypeChoice(false)}
@@ -283,7 +296,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     }
 
     // Custom close time selector
-    if (showCustomCloseTimeSelector) {
+    if (showCustomCloseTimeSelector && !isPlannedForFuture()) {
         return (
             <div style={popupStyle} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}> 
@@ -302,6 +315,8 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
                             setShowCustomCloseTimeSelector(false);
                             setShowCloseTypeChoice(true);
                         }}
+                        maxTime={new Date(new Date().getTime() + 1000 * 60 * 60 * 24)}
+                        minTime={tableData.startTime ? new Date(tableData.startTime) : null}
                     />
                 </div>
             </div>
@@ -340,7 +355,8 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
                     {tableData.startTime && (
                         <p className="text-xs text-gray-600">
-                            Started: {formatTime(new Date(tableData.startTime))}
+                            {isPlannedForFuture() ? 'Scheduled: ' : 'Started '}
+                            {formatTime(new Date(tableData.startTime))}
                         </p>
                     )}
 
@@ -364,10 +380,14 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
                     {status !== 'closed' && (
                         <button
-                            className="w-full py-1 px-3 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                            className={`w-full py-1 px-3 text-sm text-white rounded ${
+                                isPlannedForFuture()
+                                    ? 'bg-orange-500 hover:bg-orange-600'
+                                    : 'bg-gray-500 hover:bg-gray-600'
+                            }`}
                             onClick={() => setShowCloseTypeChoice(true)}
                         >
-                            Set to Closed
+                            {isPlannedForFuture() ? 'Cancel/Close' : 'Set to Closed'}
                         </button>
                     )}
                 </div>

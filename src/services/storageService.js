@@ -84,3 +84,79 @@ export const clearCurrentGameDayStorage = () => {
 
     return gamingDayStr;
 };
+
+export const removeTableActivityLog = (tableNumber, action, timestamp) => {
+  try {
+    const gamingDayStr = getGamingDayString();
+    const logKey = `tableflow-logs-${gamingDayStr}`;
+    const existingLogs = JSON.parse(localStorage.getItem(logKey) || '[]');
+
+    console.log('BEFORE removal:', {
+      logKey,
+      totalLogs: existingLogs.length,
+      searchingFor: {
+        tableNumber,
+        action,
+        timestamp: timestamp ? new Date(timestamp).toISOString() : 'none'
+      },
+      allLogs: existingLogs
+    });
+
+    // Filter out the specific log entry
+    const updatedLogs = existingLogs.filter(log => {
+      // Match by table and action first
+      if (log.table === tableNumber && log.action === action) {
+        if (timestamp && action === 'open') {
+          // ✅ For open logs, compare with startTime field in the log details
+          const logStartTime = new Date(log.startTime);
+          const targetStartTime = new Date(timestamp);
+          const timesMatch = logStartTime.getTime() === targetStartTime.getTime();
+          
+          console.log('Comparing open log:', {
+            logId: log.id,
+            logStartTime: logStartTime.toISOString(),
+            targetStartTime: targetStartTime.toISOString(),
+            timesMatch,
+            shouldRemove: timesMatch
+          });
+          
+          return !timesMatch; // Keep if times DON'T match (remove if they DO match)
+        } else if (action === 'close') {
+          // For close logs, compare with timestamp field
+          const logTime = new Date(log.timestamp);
+          const targetTime = new Date(timestamp);
+          const timesMatch = logTime.getTime() === targetTime.getTime();
+          
+          console.log('Comparing close log:', {
+            logId: log.id,
+            logTime: logTime.toISOString(),
+            targetTime: targetTime.toISOString(),
+            timesMatch,
+            shouldRemove: timesMatch
+          });
+          
+          return !timesMatch;
+        } else {
+          // If no timestamp specified, remove all logs of this action for this table
+          console.log('Removing log (no timestamp):', log.id);
+          return false; // Remove this log
+        }
+      }
+      return true; // Keep other logs
+    });
+
+    localStorage.setItem(logKey, JSON.stringify(updatedLogs));
+    
+    console.log('AFTER removal:', {
+      originalCount: existingLogs.length,
+      newCount: updatedLogs.length,
+      removed: existingLogs.length - updatedLogs.length,
+      updatedLogs
+    });
+    
+    return updatedLogs.length < existingLogs.length;
+  } catch (error) {
+    console.error('Failed to remove table activity log:', error);
+    return false;
+  }
+};

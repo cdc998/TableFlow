@@ -7,7 +7,7 @@ import greyTableSvg from '../assets/table_grey.svg';
 import yellowTableSvg from '../assets/table_yellow.svg';
 import blueTableSvg from '../assets/table_blue.svg';
 
-function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable }) {
+function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onOpenPopup, onClosePopup, onUpdateTable, onCancelPlannedOpen }) {
     const getTableSvg = (status) => {
         switch(status) {
             case 'open': return greenTableSvg;
@@ -100,6 +100,7 @@ function Table({ tableNumber, status, tableData, rotation = 90, isPopupOpen, onO
                 status={status}
                 tableData={tableData}
                 onUpdateTable={onUpdateTable}
+                onCancelPlannedOpen={onCancelPlannedOpen}
             />
         </div>
     );

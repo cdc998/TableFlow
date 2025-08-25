@@ -18,8 +18,8 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('tables');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  const { tables, updateTable, resetAllTables } = useTableData();
-  const { historyData, deleteSession } = useGameLog(tables);
+  const { tables, updateTable, resetAllTables, cancelPlannedOpen, refreshHistoryTrigger } = useTableData();
+  const { historyData, deleteSession } = useGameLog(tables, refreshHistoryTrigger);
 
   // Event handlers
   const handleExport = () => {
@@ -54,7 +54,11 @@ function App() {
 
       <div className='p-8'>
         {currentScreen === 'tables' ? (
-          <TableGrid tables={tables} onUpdateTable={updateTable}/>
+          <TableGrid
+            tables={tables}
+            onUpdateTable={updateTable}
+            onCancelPlannedOpen={cancelPlannedOpen}  
+          />
         ) : (
           <HistoryScreen historyData={historyData} onDeleteSession={deleteSession}/>
         )}

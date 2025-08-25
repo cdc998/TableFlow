@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getCurrentGamingDay, getGamingDayString } from '../services/gamingDayService';
 
-export const useGameLog = (tables) => {
+export const useGameLog = (tables, refreshHistoryTrigger = 0) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const getHistoryData = useCallback(() => {
@@ -41,30 +41,38 @@ export const useGameLog = (tables) => {
       if (table.startTime && table.status !== 'closed') {
         const sessionId = `current-${table.tableNumber}-${table.startTime.getTime()}`;
 
-        const existingSession = Object.values(sessions).find(s =>
-          s.tableNumber === table.tableNumber &&
-          s.openLog.startTime === table.startTime.toISOString() &&
-          !s.closeLog
+        const hasOpenLog = logs.some(log =>
+            log.action === 'open' &&
+            log.table === table.tableNumber &&
+            new Date(log.startTime).getTime() === table.startTime.getTime()
         );
 
-        if (!existingSession) {
-          sessions[sessionId] = {
-            sessionId: sessionId,
-            tableNumber: table.tableNumber,
-            openLog: {
-              id: sessionId,
-              timestamp: table.startTime.toISOString(),
-              table: table.tableNumber,
-              action: 'open',
-              startTime: table.startTime.toISOString(),
-              isTrialBreak: table.isTrialBreak,
-              trialSeats: table.trialSeats,
-              trialStartSeat: table.trialStartSeat
-            },
-            closeLog: null
-          };
+        if (hasOpenLog) {
+            const existingSession = Object.values(sessions).find(s =>
+                s.tableNumber === table.tableNumber &&
+                s.openLog.startTime === table.startTime.toISOString() &&
+                !s.closeLog
+            );
+
+            if (!existingSession) {
+              sessions[sessionId] = {
+                sessionId: sessionId,
+                tableNumber: table.tableNumber,
+                openLog: {
+                  id: sessionId,
+                  timestamp: table.startTime.toISOString(),
+                  table: table.tableNumber,
+                  action: 'open',
+                  startTime: table.startTime.toISOString(),
+                  isTrialBreak: table.isTrialBreak,
+                  trialSeats: table.trialSeats,
+                  trialStartSeat: table.trialStartSeat
+                },
+                closeLog: null
+              };
+            }
+          }
         }
-      }
     });
 
     const historyItems = Object.values(sessions).map(session => {
@@ -84,7 +92,7 @@ export const useGameLog = (tables) => {
     });
 
     return historyItems.sort((a, b) => b.openTime - a.openTime);
-  }, [tables, refreshTrigger]);
+  }, [tables, refreshTrigger, refreshHistoryTrigger]);
 
   const deleteSession = useCallback((sessionId) => {
     if (!confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
@@ -116,9 +124,14 @@ export const useGameLog = (tables) => {
     setRefreshTrigger(prev => prev + 1); // Force re-render
   }, []);
 
+  const refreshHistoryData = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
   return {
     historyData: getHistoryData(),
     deleteSession,
-    getHistoryData
+    getHistoryData,
+    refreshHistoryData
   };
 };
