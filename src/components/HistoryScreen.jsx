@@ -1,13 +1,25 @@
-import { getCurrentGamingDay } from '../services/gamingDayService';
+import { getCurrentGamingDay, getGamingDayString } from '../services/gamingDayService';
 
 function HistoryScreen({ historyData, onDeleteSession }) {
     const gamingDay = getCurrentGamingDay();
+
+    const formatDateTime = (date) => {
+        if (!date) return 'Still Open';
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    };
 
     return (
         <div className='max-w-6xl mx-auto'>
         <div className='bg-gray-900 rounded-lg p-6'>
             <h2 className='text-2xl font-bold text-white mb-6'>
-            Table History - Gaming Day: {gamingDay.toLocaleDateString()}
+            Table History - Gaming Day: {getGamingDayString()}
             </h2>
 
             {historyData.length === 0 ? (
@@ -42,9 +54,9 @@ function HistoryScreen({ historyData, onDeleteSession }) {
                         </span>
                         </td>
                         <td className='py-3 px-4 text-gray-300'>{item.breakType}</td>
-                        <td className='py-3 px-4 text-gray-300'>{item.openTime.toLocaleString()}</td>
+                        <td className='py-3 px-4 text-gray-300'>{formatDateTime(item.openTime)}</td>
                         <td className='py-3 px-4 text-gray-300'>
-                        {item.closeTime ? item.closeTime.toLocaleString() : 'Still Open'}
+                        {formatDateTime(item.closeTime)}
                         </td>
                         <td className='py-3 px-4 text-gray-300'>
                         {item.duration ||

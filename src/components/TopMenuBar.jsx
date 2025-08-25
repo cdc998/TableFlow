@@ -4,7 +4,8 @@ function TopMenuBar({
   currentScreen, 
   onScreenChange, 
   onExport, 
-  onBackupExport, 
+  onBackupExport,
+  onUpcomingBreaksExport,
   onReset 
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -83,6 +84,14 @@ function TopMenuBar({
                 >
                   Export Excel Timeline
                 </button>
+
+                <button
+                  onClick={onUpcomingBreaksExport}
+                  className='block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-200'
+                >
+                  Export Breaks Schedule
+                </button>
+
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);

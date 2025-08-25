@@ -161,44 +161,26 @@ export const generateSequence = (totalSeats, startingSeat) => {
 };
 
 export const checkBreakInInterval = (table, intervalStart, intervalEnd) => {
-    if (table.isTrialBreak) {
-      return false;
-    }
-
-    if (!table.startTime) return false;
+    if (!table.startTime || table.isTrialBreak) return false;
 
     const startTime = new Date(table.startTime);
 
-    if (intervalEnd <= startTime) return false;
+    const elapsedMs = intervalStart.getTime() - startTime.getTime();
+    const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
 
-    const tableStartMs = startTime.getTime();
-    const intervalStartMs = intervalStart.getTime();
-    const intervalEndMs = intervalEnd.getTime();
+    if (elapsedMinutes < 180) return false;
 
-    let breakNumber = 0;
+    const cycleNumber = Math.floor(elapsedMinutes / 195); // 195 = 180 play + 15 break
+    const minutesInCurrentCycle = elapsedMinutes % 195;
 
-    while (true) {
-        let breakStartMs;
+    // Break occurs from minute 180 to 195 in each cycle
+    const isInBreakPeriod = minutesInCurrentCycle >= 180;
 
-        if (breakNumber === 0) {
-            breakStartMs = tableStartMs + (1000 * 60 * 60 * 3);
-        } else {
-            breakStartMs = tableStartMs + (1000 * 60 * 60 * 3) + (breakNumber * 1000 * 60 * 60 * 3.25);
-        }
+    if (isInBreakPeriod) {
+        const breakStartTime = new Date(startTime.getTime() + ((cycleNumber * 195 + 180) * 60 * 1000));
+        const breakEndTime = new Date(startTime.getTime() + ((cycleNumber * 195 + 195) * 60 * 1000));
 
-        const breakEndMs = breakStartMs + (1000 * 60 * 15);
-
-        if (breakStartMs >= intervalEndMs) {
-            break;
-        }
-
-        if (breakStartMs < intervalEndMs && breakEndMs > intervalStartMs) {
-            return true;
-        }
-
-        breakNumber++;
-
-        if (breakNumber > 20) break;
+        return intervalStart < breakEndTime && intervalEnd > breakStartTime;
     }
 
     return false;

@@ -5,13 +5,14 @@ import { useTableData } from './hooks/useTableData';
 import { useGameLog } from './hooks/useGameLog';
 
 // Services
-import { exportTimelineExcel, exportBackupLogs } from './services/exportService';
+import { exportTimelineExcel, exportBackupLogs, exportUpcomingBreaks } from './services/exportService';
 
 // Components
 import TopMenuBar from './components/TopMenuBar';
 import TableGrid from './components/TableGrid';
 import HistoryScreen from './components/HistoryScreen';
 import ResetConfirmModal from './components/ResetConfirmModal';
+import UpcomingBreaksBar from './components/UpcomingBreaksBar';
 
 function App() {
   // states
@@ -28,6 +29,10 @@ function App() {
   
   const handleBackupExport = () => {
     exportBackupLogs();
+  };
+
+  const handleUpcomingBreaksExport = () => {
+    exportUpcomingBreaks(historyData, tables);
   };
 
   const handleResetConfirm = () => {
@@ -49,7 +54,13 @@ function App() {
         onScreenChange={setCurrentScreen}
         onExport={handleExport}
         onBackupExport={handleBackupExport}
+        onUpcomingBreaksExport={handleUpcomingBreaksExport}
         onReset={() => setShowResetConfirm(true)}
+      />
+
+      <UpcomingBreaksBar
+        historyData={historyData}
+        tables={tables}
       />
 
       <div className='p-8'>
