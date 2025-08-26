@@ -98,13 +98,9 @@ function UpcomingBreaksBar({ historyData, tables }) {
       return acc;
     }, {});
 
-    console.log('Trial Tables Map:', trialTablesMap);
-    console.log('Active Trial Sessions:', activeTrialSessions);
-
     const trialTables = activeTrialSessions.map(session => {
       // Get table configuration from tables array
       const tableInfo = trialTablesMap[session.tableNumber];
-      console.log(`Table ${session.tableNumber} info:`, tableInfo);
 
       // Get starting seat from table configuration
       // Default to seat 9 as starting seat if not found
@@ -157,22 +153,6 @@ function UpcomingBreaksBar({ historyData, tables }) {
       const nextBreakingSeat = seatOrder[nextPosition];
       
       const countdownStr = `${minutesUntilNext}:${remainingSeconds.toString().padStart(2, '0')}`;
-      
-      // Debug information
-      console.log(`Table ${session.tableNumber} calculation:`, {
-        tableNumber: session.tableNumber,
-        openTime: new Date(session.openTime).toLocaleTimeString(),
-        startingSeat,
-        totalSeats,
-        seatOrder: seatOrder.join(','),
-        elapsedSeconds,
-        currentCycle,
-        currentPosition,
-        currentSeat: currentBreakingSeat,
-        nextPosition,
-        nextSeat: nextBreakingSeat,
-        countdown: countdownStr
-      });
       
       return {
         tableNumber: session.tableNumber,
