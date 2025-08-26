@@ -8,7 +8,7 @@ function UpcomingBreaksBar({ historyData, tables }) {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 10000);
+    }, 1000);
 
     return () => clearInterval(timer);
   }, []);
@@ -274,9 +274,7 @@ function UpcomingBreaksBar({ historyData, tables }) {
                   {/* Countdown Timer */}
                   <div className="flex items-center space-x-1 ml-2 pl-2 border-l border-white/30">
                     <span className="text-white text-xs font-medium">in</span>
-                    <span className={`text-lg font-bold ${
-                      selectedRotation.isFlashing ? 'text-red-800' : 'text-white'
-                    }`}>
+                    <span className='text-lg font-bold text-white'>
                       {selectedRotation.countdown}
                     </span>
                   </div>

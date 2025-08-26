@@ -16,12 +16,37 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     const [showCloseTypeChoice, setShowCloseTypeChoice] = useState(false);
     const [showCustomCloseTimeSelector, setShowCustomCloseTimeSelector] = useState(false);
 
-    const popupStyle = {
-        position: 'absolute',
-        bottom: '80%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        marginBottom: '10px'
+    const getPopupStyle = () => {
+        const style = {
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50
+        };
+
+        const tableElement = document.getElementById(`table-${tableNumber}`);
+        if (!tableElement) {
+            style.bottom = '80%';
+            style.marginBottom = '10px';
+            return style;
+        }
+        
+        const tableRect = tableElement.getBoundingClientRect();
+        const popupHeight = 280;
+        const viewportHeight = window.innerHeight;
+        
+        // Check if there's enough space above the table
+        if (tableRect.top > popupHeight + 20) {
+            // Position above the table (original behavior)
+            style.bottom = '80%';
+            style.marginBottom = '10px';
+        } else {
+            // Not enough space above, position below the table
+            style.top = '80%';
+            style.marginTop = '10px';
+        }
+        
+        return style;
     };
 
     const isPlannedForFuture = () => {
@@ -145,7 +170,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     // Break type choice screen
     if (showBreakTypeChoice) {
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
                     <h3 className="font-semibold text-sm mb-3">Choose Break System:</h3>
                     
@@ -187,7 +212,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     // Trial break selector
     if (showTrialBreakSelector) {
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-80" onClick={(e) => e.stopPropagation()}>
                     <TrialBreakSelector
                         onSelect={(settings) => {
@@ -205,7 +230,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     // Trial break time picker (only :00, :20, :40)
     if (showTrialTimePicker) {
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-80" onClick={(e) => e.stopPropagation()}>
                     <TrialBreakTimePicker
                         onSelectTime={(time) => {
@@ -223,7 +248,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
 
     if (showTimeSelector) {
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
                     <TimeSelector
                         onSelectTime={(time) => {
@@ -244,7 +269,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
         const isPlanned = isPlannedForFuture();
 
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}>
                     <h3 className="font-semibold text-sm mb-3">
                         {isPlanned ? 'Cancel Planned Opening?' : 'Choose Close Time:'}
@@ -298,7 +323,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     // Custom close time selector
     if (showCustomCloseTimeSelector && !isPlannedForFuture()) {
         return (
-            <div style={popupStyle} className="z-50">
+            <div style={getPopupStyle()} className="z-50">
                 <div className="bg-white p-4 rounded-lg shadow-lg w-64" onClick={(e) => e.stopPropagation()}> 
                     <div className="mb-3">
                         <h3 className="font-semibold text-sm mb-1">Close Table {tableNumber}</h3>
@@ -324,7 +349,7 @@ function PopupMenu({ isOpen, onClose, tableNumber, status, tableData, onUpdateTa
     }
 
     return (
-        <div style={popupStyle} className="z-50">
+        <div style={getPopupStyle()} className="z-50">
             <div
                 className="bg-white p-4 rounded-lg shadow-lg w-64"
                 onClick={(e) => e.stopPropagation()}
