@@ -274,9 +274,13 @@ function UpcomingBreaksBar({ historyData, tables }) {
                   {/* Countdown Timer */}
                   <div className="flex items-center space-x-1 ml-2 pl-2 border-l border-white/30">
                     <span className="text-white text-xs font-medium">in</span>
-                    <span className='text-lg font-bold text-white'>
-                      {selectedRotation.countdown}
-                    </span>
+                    <div className="w-[50px] text-right"> {/* Fixed width container */}
+                        <span 
+                        className='text-lg font-bold inline-block text-white'
+                        >
+                        {selectedRotation.countdown}
+                        </span>
+                    </div>
                   </div>
                 </div>
               )}
