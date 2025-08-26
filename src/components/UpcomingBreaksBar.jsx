@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { getCurrentGamingDay } from '../services/gamingDayService';
 import { checkBreakInInterval } from '../utils/timeHelpers';
 
 function UpcomingBreaksBar({ historyData, tables }) {
@@ -9,7 +8,7 @@ function UpcomingBreaksBar({ historyData, tables }) {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000);
+    }, 10000);
 
     return () => clearInterval(timer);
   }, []);
@@ -82,78 +81,125 @@ function UpcomingBreaksBar({ historyData, tables }) {
     return tablesOnBreak.sort((a, b) => parseInt(a) - parseInt(b));
   };
 
-  const calculateTrialCountdown = (startTime, currentTime) => {
-    const elapsedMs = currentTime - startTime;
-    const elapsedTotalSeconds = Math.ceil(elapsedMs / 1000);
-    
-    // Trial breaks are every 20 minutes = 1200 seconds
-    const cycleLength = 20 * 60; // 1200 seconds
-    const secondsInCurrentCycle = elapsedTotalSeconds % cycleLength;
-    const secondsUntilNext = cycleLength - secondsInCurrentCycle;
-    
-    const minutesUntilNext = Math.floor(secondsUntilNext / 60);
-    const remainingSeconds = secondsUntilNext % 60;
-    
-    return {
-      minutesUntilNext,
-      secondsUntilNext: remainingSeconds,
-      totalSecondsUntilNext: secondsUntilNext,
-      isFlashing: secondsUntilNext <= 60
-    };
-  };
-
   // Get trial breaks in next intervals
-  const getTrialBreakRotations = () => {
-    const activeTrialTables = [];
+  const getActiveTrialTables = () => {
+    // Find active trial sessions from history data
+    const activeTrialSessions = historyData.filter(session => 
+      session.breakType && 
+      session.breakType.includes('Trial') && 
+      !session.closeTime
+    );
 
-    historyData.forEach(session => {
-      if (session.breakType && session.breakType.includes('Trial') && !session.closeTime) {
-        activeTrialTables.push({
-          number: session.tableNumber,
-          startTime: session.openTime,
-          trialSeats: session.trialSeats || 9,
-          trialStartSeat: session.trialStartSeat || 1,
-        });
+    // Find trial tables from tables array to get configuration
+    const trialTablesMap = tables.reduce((acc, table) => {
+      if (table.status === 'trial-break') {
+        acc[table.tableNumber] = table;
       }
-    });
+      return acc;
+    }, {});
 
-    if (activeTrialTables.length === 0) return [];
+    console.log('Trial Tables Map:', trialTablesMap);
+    console.log('Active Trial Sessions:', activeTrialSessions);
 
-    const trialRotations = activeTrialTables.map(table => {
-      const elapsed = Math.floor((currentTime - table.startTime) / (1000 * 60));
-      const currentCycle = Math.floor(elapsed / 20);
+    const trialTables = activeTrialSessions.map(session => {
+      // Get table configuration from tables array
+      const tableInfo = trialTablesMap[session.tableNumber];
+      console.log(`Table ${session.tableNumber} info:`, tableInfo);
+
+      // Get starting seat from table configuration
+      // Default to seat 9 as starting seat if not found
+      const startingSeat = tableInfo?.trialStartSeat || 9;
+      const totalSeats = parseInt(session.breakType.match(/\((\d+) seats\)/)?.[1]) || 9;
       
-      const totalSeats = table.trialSeats;
-      const startSeat = table.trialStartSeat;
-      const currentBreakingSeat = startSeat + (currentCycle % totalSeats);
-      const nextBreakingSeat = startSeat + ((currentCycle + 1) % totalSeats);
-
-      const countdown = calculateTrialCountdown(table.startTime, currentTime);
-
+      // Calculate elapsed time in seconds
+      const elapsedMs = currentTime - new Date(session.openTime);
+      const elapsedSeconds = Math.ceil(elapsedMs / 1000);
+      
+      // Trial breaks are every 20 minutes = 1200 seconds
+      const cycleLength = 20 * 60; // 1200 seconds
+      const currentCycle = Math.floor(elapsedSeconds / cycleLength);
+      const secondsInCurrentCycle = elapsedSeconds % cycleLength;
+      
+      // Calculate remaining time properly
+      const secondsUntilNext = cycleLength - secondsInCurrentCycle;
+      const minutesUntilNext = Math.floor(secondsUntilNext / 60);
+      const remainingSeconds = secondsUntilNext % 60;
+      
+      // Generate seat order based on starting seat
+      let seatOrder = [];
+      
+      // For a 9-seat table, generate the correct rotation
+      // If startingSeat is 9, then: [9, D, 1, 2, 3, 4, 5, 6, 7, 8]
+      if (startingSeat === 9) {
+        seatOrder = ['9', 'D', '1', '2', '3', '4', '5', '6', '7', '8'];
+      } else {
+        // Generate dynamic seat order for other starting seats
+        // Add all seats from startingSeat to 9
+        for (let i = startingSeat; i <= totalSeats; i++) {
+          seatOrder.push(i.toString());
+        }
+        
+        // Add dealer
+        seatOrder.push('D');
+        
+        // Add seats from 1 to startingSeat-1
+        for (let i = 1; i < startingSeat; i++) {
+          seatOrder.push(i.toString());
+        }
+      }
+      
+      const totalPositions = seatOrder.length; // Should be 10 for a 9-seat table
+      const currentPosition = currentCycle % totalPositions;
+      const nextPosition = (currentPosition + 1) % totalPositions;
+      
+      // Get current and next seat from the seat order array
+      const currentBreakingSeat = seatOrder[currentPosition];
+      const nextBreakingSeat = seatOrder[nextPosition];
+      
+      const countdownStr = `${minutesUntilNext}:${remainingSeconds.toString().padStart(2, '0')}`;
+      
+      // Debug information
+      console.log(`Table ${session.tableNumber} calculation:`, {
+        tableNumber: session.tableNumber,
+        openTime: new Date(session.openTime).toLocaleTimeString(),
+        startingSeat,
+        totalSeats,
+        seatOrder: seatOrder.join(','),
+        elapsedSeconds,
+        currentCycle,
+        currentPosition,
+        currentSeat: currentBreakingSeat,
+        nextPosition,
+        nextSeat: nextBreakingSeat,
+        countdown: countdownStr
+      });
+      
       return {
-        tableNumber: table.number,
+        tableNumber: session.tableNumber,
         currentSeat: currentBreakingSeat,
         nextSeat: nextBreakingSeat,
-        minutesUntilNext: countdown.minutesUntilNext,
-        secondsUntilNext: countdown.secondsUntilNext,
-        totalSecondsUntilNext: countdown.totalSecondsUntilNext,
-        isFlashing: countdown.isFlashing
+        countdown: countdownStr,
+        minutesUntilNext,
+        secondsUntilNext: remainingSeconds,
+        isFlashing: secondsUntilNext <= 60
       };
     });
 
-    return trialRotations.sort((a, b) => parseInt(a.tableNumber) - parseInt(b.tableNumber));
+    return trialTables.sort((a, b) => parseInt(a.tableNumber) - parseInt(b.tableNumber));
   };
 
   const intervals = getNext3Intervals();
-  const trialRotations = getTrialBreakRotations();
+  const activeTrialTables = getActiveTrialTables();
 
   useEffect(() => {
-    if (trialRotations.length > 0 && !selectedTrialTable) {
-      setSelectedTrialTable(trialRotations[0].tableNumber);
+    if (activeTrialTables.length > 0 && !selectedTrialTable) {
+      setSelectedTrialTable(activeTrialTables[0].tableNumber);
+    } else if (activeTrialTables.length === 0) {
+      setSelectedTrialTable(null);
     }
-  }, [trialRotations, selectedTrialTable]);
+  }, [activeTrialTables, selectedTrialTable]);
 
-  const selectedRotation = trialRotations.find(r => r.tableNumber === selectedTrialTable);
+  const selectedRotation = activeTrialTables.find(t => t.tableNumber === selectedTrialTable);
 
   return (
     <div className="bg-gray-800 border-b border-gray-700">
@@ -200,7 +246,7 @@ function UpcomingBreaksBar({ historyData, tables }) {
           </div>
 
           {/* RIGHT: Trial Break Selection & Countdown */}
-          {trialRotations.length > 0 && (
+          {activeTrialTables.length > 0 && (
             <div className="flex items-center space-x-4">
               
               {/* Table Selector */}
@@ -211,15 +257,15 @@ function UpcomingBreaksBar({ historyData, tables }) {
                   onChange={(e) => setSelectedTrialTable(e.target.value)}
                   className="bg-gray-700 text-white text-sm px-2 py-1 rounded border border-gray-600 focus:border-orange-500 focus:outline-none"
                 >
-                  {trialRotations.map(rotation => (
-                    <option key={rotation.tableNumber} value={rotation.tableNumber}>
-                      Table {rotation.tableNumber}
+                  {activeTrialTables.map(table => (
+                    <option key={table.tableNumber} value={table.tableNumber}>
+                      Table {table.tableNumber}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Trial Break Display with Flashing Background */}
+              {/* Trial Break Display using calculated nextSeat */}
               {selectedRotation && (
                 <div 
                   className={`flex items-center space-x-3 px-4 py-0.5 rounded transition-all duration-300 ${
@@ -236,10 +282,8 @@ function UpcomingBreaksBar({ historyData, tables }) {
                     </span>
                   </div>
 
-                  {/* Arrow */}
-                  <span className="text-white text-sm">→</span>
-
                   {/* Next Break Info */}
+                  <span className="text-white text-sm">→</span>
                   <div className="flex items-center space-x-1">
                     <span className="text-white text-xs font-medium">Next:</span>
                     <span className="text-white text-sm font-bold">
@@ -250,9 +294,10 @@ function UpcomingBreaksBar({ historyData, tables }) {
                   {/* Countdown Timer */}
                   <div className="flex items-center space-x-1 ml-2 pl-2 border-l border-white/30">
                     <span className="text-white text-xs font-medium">in</span>
-                    <span className='text-lg font-bold text-white'>
-                      {selectedRotation.minutesUntilNext}:
-                      {selectedRotation.secondsUntilNext.toString().padStart(2, '0')}
+                    <span className={`text-lg font-bold ${
+                      selectedRotation.isFlashing ? 'text-red-800' : 'text-white'
+                    }`}>
+                      {selectedRotation.countdown}
                     </span>
                   </div>
                 </div>

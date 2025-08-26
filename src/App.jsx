@@ -68,7 +68,7 @@ function App() {
           <TableGrid
             tables={tables}
             onUpdateTable={updateTable}
-            onCancelPlannedOpen={cancelPlannedOpen}  
+            onCancelPlannedOpen={cancelPlannedOpen}
           />
         ) : (
           <HistoryScreen historyData={historyData} onDeleteSession={deleteSession}/>
